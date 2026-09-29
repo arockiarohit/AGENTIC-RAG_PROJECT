@@ -1,0 +1,17 @@
+fastapi
+uvicorn[standard]
+python-multipart
+langchain
+langchain-community
+langchain-text-splitters
+faiss-cpu
+sentence-transformers
+PyMuPDF
+python-docx
+ollama
+python-dotenv
+numpy
+groq
+rank-bm25
+langgraph
+tavily-python
