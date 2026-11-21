@@ -10,5 +10,6 @@ if (Test-Path ".\venv") {
     Write-Host "Warning: Virtual environment (venv) not found. Running with system python." -ForegroundColor Yellow
 }
 
+Set-Location (Join-Path $PSScriptRoot "backend")
 Write-Host "Running server on http://localhost:8000" -ForegroundColor Green
 python -m uvicorn app.main:app --reload

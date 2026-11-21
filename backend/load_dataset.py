@@ -1,8 +1,9 @@
+import os
 import json
 from app.vector_store import vector_store
 
-# Path to your JSON dataset
-DATASET_PATH = "data/theni_complete_large_rag_dataset.json"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATASET_PATH = os.path.join(BASE_DIR, "data", "theni_complete_large_rag_dataset.json")
 
 print("=" * 50)
 print("RAG DATASET LOADER STARTED")

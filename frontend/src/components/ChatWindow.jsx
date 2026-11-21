@@ -71,11 +71,8 @@ function getImageUrl(message) {
     url = '/' + url;
   }
 
-  const apiBase = import.meta.env?.VITE_API_BASE_URL || 'http://localhost:8000';
-  const origin = (typeof window !== 'undefined' && window.location.port !== '5173')
-    ? window.location.origin
-    : apiBase;
-  return `${origin}${url}`;
+  const apiBase = (import.meta.env?.VITE_API_BASE_URL || 'http://localhost:8000').replace(/\/$/, '');
+  return `${apiBase}${url}`;
 }
 
 function MessageBubble({ message }) {

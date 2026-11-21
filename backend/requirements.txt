@@ -17,3 +17,6 @@ langgraph
 tavily-python
 tzdata
 google-generativeai
+requests
+Pillow
+huggingface_hub

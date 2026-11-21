@@ -9,13 +9,14 @@ import requests
 from PIL import Image
 from dotenv import load_dotenv
 from huggingface_hub import InferenceClient
+from app.config import BASE_DIR
 
 load_dotenv()
 
 logger = logging.getLogger(__name__)
 
 # Directory for generated images
-GENERATED_IMAGE_DIR = Path("generated_images")
+GENERATED_IMAGE_DIR = Path(BASE_DIR) / "generated_images"
 GENERATED_IMAGE_DIR.mkdir(parents=True, exist_ok=True)
 
 

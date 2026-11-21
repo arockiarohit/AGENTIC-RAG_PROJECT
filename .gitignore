@@ -3,6 +3,7 @@
 *.env
 .env.local
 .env.*.local
+backend/.env
 
 # Python
 __pycache__/
@@ -10,8 +11,8 @@ __pycache__/
 *$py.class
 *.so
 .Python
-env/
 venv/
+env/
 ENV/
 env.bak/
 venv.bak/
@@ -25,6 +26,7 @@ dist/
 
 # Temporary generated files & caches
 generated_images/
+backend/generated_images/
 *.log
 .pytest_cache/
 poll_test_*.jpg

@@ -1,0 +1,45 @@
+# ==============================================================================
+# District RAG Chatbot - Docker Ignore
+# ==============================================================================
+
+# Secrets and environment files
+.env
+*.env
+.env.*
+.env.local
+
+# Git
+.git
+.gitignore
+
+# Python virtual environments & bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+*.egg-info/
+.pytest_cache/
+
+# Node.js & React source code (production static files are copied from /static)
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/
+.vite/
+
+# Temporary generated files, test logs & scratchpad
+generated_images/
+*.log
+poll_test_*.jpg
+scratch/
+test_*.py
+
+# Operating system & IDE files
+.DS_Store
+.vscode/
+.idea/
+Thumbs.db
