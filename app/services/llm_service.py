@@ -19,6 +19,13 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 
+FALLBACK_MODELS = [
+    "llama-3.3-70b-versatile",
+    "llama-3.1-8b-instant",
+    "mixtral-8x7b-32768"
+]
+
+
 class LLMService:
     """Centralized service for all LLM interactions via Groq."""
 
@@ -33,36 +40,40 @@ class LLMService:
     def generate(self, prompt: str, temperature: float | None = None,
                  max_tokens: int | None = None) -> str:
         """
-        Single-shot LLM completion.
-
-        Args:
-            prompt: The prompt to send to the LLM.
-            temperature: Override default temperature.
-            max_tokens: Override default max tokens.
-
-        Returns:
-            The generated text response.
+        Single-shot LLM completion with automatic fallback for 429 rate limits.
         """
-        try:
-            start_time: float = time.time()
+        models_to_try = [self._model] + [m for m in FALLBACK_MODELS if m != self._model]
 
-            response = self._client.chat.completions.create(
-                model=self._model,
-                messages=[
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=temperature if temperature is not None else TEMPERATURE,
-                max_tokens=max_tokens or MAX_TOKENS,
-            )
+        for model_name in models_to_try:
+            try:
+                start_time: float = time.time()
 
-            elapsed: float = time.time() - start_time
-            logger.info("[LLM] Generate completed in %.2f seconds", elapsed)
+                response = self._client.chat.completions.create(
+                    model=model_name,
+                    messages=[
+                        {"role": "user", "content": prompt}
+                    ],
+                    temperature=temperature if temperature is not None else TEMPERATURE,
+                    max_tokens=max_tokens or MAX_TOKENS,
+                )
 
-            return response.choices[0].message.content or ""
+                elapsed: float = time.time() - start_time
+                logger.info("[LLM] Generate completed with model '%s' in %.2f seconds", model_name, elapsed)
 
-        except Exception as e:
-            logger.error("[LLM] Generate error: %s", str(e))
-            return f"Error generating response: {str(e)}"
+                return response.choices[0].message.content or ""
+
+            except Exception as e:
+                err_msg = str(e)
+                if "429" in err_msg or "rate_limit_exceeded" in err_msg.lower():
+                    logger.warning("[LLM] Rate limit 429 hit for model '%s'. Trying fallback model...", model_name)
+                    time.sleep(1)
+                    continue
+                else:
+                    logger.error("[LLM] Generate error with model '%s': %s", model_name, err_msg)
+                    # Try next fallback model if available
+                    continue
+
+        return "Error generating response: Rate limits exceeded on all available LLM models. Please try again shortly."
 
     def stream(self, prompt: str, temperature: float | None = None,
                max_tokens: int | None = None) -> Generator[str, None, None]:

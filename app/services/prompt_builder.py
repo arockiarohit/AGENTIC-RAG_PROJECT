@@ -29,6 +29,9 @@ class PromptBuilderService:
         context: str,
         history: list[dict] | None = None,
         summary: str = "",
+        normalized_query: str = "",
+        language: str = "english",
+
     ) -> str:
         """
         Build a complete prompt for the LLM.
@@ -38,6 +41,8 @@ class PromptBuilderService:
             context: Retrieved document context.
             history: Recent conversation history (list of message dicts).
             summary: Compressed summary of older conversation.
+            normalized_query: Normalized English version of the user's query.
+            language: Detected language/style of the user's original query.
 
         Returns:
             A formatted prompt string ready for LLM consumption.
@@ -54,6 +59,8 @@ class PromptBuilderService:
             conversation_history=history_section,
             context=context,
             question=question,
+            normalized_query=normalized_query or question,
+            language=language,
         )
 
         logger.info(

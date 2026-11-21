@@ -15,3 +15,5 @@ groq
 rank-bm25
 langgraph
 tavily-python
+tzdata
+google-generativeai

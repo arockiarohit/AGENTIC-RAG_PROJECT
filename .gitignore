@@ -27,6 +27,8 @@ dist/
 generated_images/
 *.log
 .pytest_cache/
+poll_test_*.jpg
+scratch/
 
 # OS / IDE
 .DS_Store

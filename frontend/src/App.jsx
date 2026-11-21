@@ -30,12 +30,27 @@ export default function App() {
       } else if (typeof data === 'string') {
         try {
           const parsed = JSON.parse(data);
-          content = parsed.answer || data;
+          content = parsed.answer !== undefined ? parsed.answer : data;
           image_url = parsed.image_url || null;
           sources = parsed.sources || [];
           route = parsed.route || 'general';
         } catch (e) {
           content = data;
+        }
+      }
+
+      // If content itself is a JSON stringified object, extract only the answer string
+      if (typeof content === 'string' && content.trim().startsWith('{') && content.trim().endsWith('}')) {
+        try {
+          const parsedContent = JSON.parse(content);
+          if (parsedContent && parsedContent.answer !== undefined) {
+            content = parsedContent.answer;
+            if (parsedContent.image_url) image_url = parsedContent.image_url;
+            if (parsedContent.sources) sources = parsedContent.sources;
+            if (parsedContent.route) route = parsedContent.route;
+          }
+        } catch (e) {
+          // Keep content as is if not valid JSON
         }
       }
 

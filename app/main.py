@@ -15,7 +15,7 @@ from pydantic import BaseModel
 from dotenv import load_dotenv
 load_dotenv()
 from app.vector_store import vector_store
-from app.rag_chain import ask_question
+
 
 # --- Logging Setup ---
 logging.basicConfig(

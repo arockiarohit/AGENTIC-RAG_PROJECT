@@ -4,9 +4,11 @@ from app.graph.state import GraphState
 from app.graph.nodes import (
     theni_retriever_node,
     web_search_node,
+    current_news_node,
     calculator_node,
     generate_answer_node,
-    image_generation_node
+    image_generation_node,
+    datetime_node
 )
 
 from app.graph.router import classify_question, route_question
@@ -37,8 +39,18 @@ def create_workflow() -> StateGraph:
     )
 
     workflow.add_node(
+        "current_news",
+        current_news_node
+    )
+
+    workflow.add_node(
         "calculator",
         calculator_node
+    )
+
+    workflow.add_node(
+        "datetime",
+        datetime_node
     )
 
     workflow.add_node(
@@ -69,8 +81,10 @@ def create_workflow() -> StateGraph:
         route_question,
         {
             "theni": "theni_retriever",
+            "current_news": "current_news",
             "general": "web_search",
             "current": "web_search",
+            "datetime": "datetime",
             "arithmetic": "calculator",
             "image": "image_generation"
         }
@@ -86,12 +100,22 @@ def create_workflow() -> StateGraph:
     )
 
     workflow.add_edge(
+        "current_news",
+        "generate_answer"
+    )
+
+    workflow.add_edge(
         "web_search",
         "generate_answer"
     )
 
     workflow.add_edge(
         "calculator",
+        "generate_answer"
+    )
+
+    workflow.add_edge(
+        "datetime",
         "generate_answer"
     )
 

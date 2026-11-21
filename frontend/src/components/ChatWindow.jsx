@@ -28,13 +28,60 @@ function SourceBadge({ source }) {
   );
 }
 
+function getCleanTextContent(message) {
+  if (!message) return '';
+  let content = message.content || '';
+
+  if (typeof content === 'string' && content.trim().startsWith('{') && content.trim().endsWith('}')) {
+    try {
+      const parsed = JSON.parse(content);
+      if (parsed && parsed.answer !== undefined) {
+        return parsed.answer;
+      }
+    } catch (e) {
+      return content;
+    }
+  }
+  return content;
+}
+
+function getImageUrl(message) {
+  if (!message) return null;
+
+  let url = message.image_url || message.image_path || null;
+
+  if (!url && typeof message.content === 'string' && message.content.trim().startsWith('{') && message.content.trim().endsWith('}')) {
+    try {
+      const parsed = JSON.parse(message.content);
+      if (parsed && (parsed.image_url || parsed.image_path)) {
+        url = parsed.image_url || parsed.image_path;
+      }
+    } catch (e) {
+      // Ignore
+    }
+  }
+
+  if (!url) return null;
+
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return url;
+  }
+
+  if (!url.startsWith('/')) {
+    url = '/' + url;
+  }
+
+  const apiBase = import.meta.env?.VITE_API_BASE_URL || 'http://localhost:8000';
+  const origin = (typeof window !== 'undefined' && window.location.port !== '5173')
+    ? window.location.origin
+    : apiBase;
+  return `${origin}${url}`;
+}
+
 function MessageBubble({ message }) {
   const isUser = message.role === 'user';
-  const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
-
-  const imageUrl = message.image_url
-    ? (message.image_url.startsWith('http') ? message.image_url : `${apiBase}${message.image_url}`)
-    : null;
+  const imageUrl = getImageUrl(message);
+  const displayContent = getCleanTextContent(message);
 
   return (
     <div className={`flex items-start gap-3 animate-slide-up ${isUser ? 'flex-row-reverse' : ''}`}>
@@ -51,8 +98,8 @@ function MessageBubble({ message }) {
 
       {/* Message Content */}
       <div className={`max-w-[75%] ${isUser ? 'msg-user' : 'msg-bot'} px-5 py-3.5 space-y-3`}>
-        {message.content && (
-          <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
+        {displayContent && (
+          <p className="text-sm leading-relaxed whitespace-pre-wrap">{displayContent}</p>
         )}
 
         {imageUrl && (
@@ -62,22 +109,15 @@ function MessageBubble({ message }) {
               alt="AI generated image"
               className="max-w-full h-auto rounded-lg object-contain max-h-[400px] shadow-lg"
               onError={(e) => {
+                console.error("Image failed to load:", imageUrl);
+                const backendFallback = `http://localhost:8000${imageUrl.startsWith('/') ? '' : '/'}${imageUrl.replace(/^https?:\/\/[^/]+/, '')}`;
+                if (e.target.src !== backendFallback) {
+                  e.target.src = backendFallback;
+                  return;
+                }
                 e.target.onerror = null;
-                e.target.style.display = 'none';
               }}
             />
-          </div>
-        )}
-
-        {/* Source References */}
-        {!isUser && message.sources && message.sources.length > 0 && (
-          <div className="mt-3 pt-3 border-t border-white/10">
-            <p className="text-xs text-dark-400 mb-2 font-medium">📎 Sources:</p>
-            <div className="flex flex-wrap gap-1.5">
-              {message.sources.map((source, i) => (
-                <SourceBadge key={i} source={source} />
-              ))}
-            </div>
           </div>
         )}
       </div>

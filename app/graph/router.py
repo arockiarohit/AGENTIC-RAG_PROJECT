@@ -1,6 +1,7 @@
 import logging
 import json
 import re
+
 from app.graph.state import GraphState
 from app.services.llm_service import llm_service
 
@@ -8,6 +9,7 @@ logger = logging.getLogger(__name__)
 
 
 def classify_question(state: GraphState) -> GraphState:
+
     question = state["question"]
 
     logger.info(
@@ -58,258 +60,116 @@ def classify_question(state: GraphState) -> GraphState:
         or is_frustration
     ):
         logger.info(
-            "[LangGraph] Conversational intent detected. "
-            "Route selected: theni"
+            "[LangGraph] Conversational intent detected. Route selected: general"
         )
 
         return {
             **state,
-            "route": "theni"
+            "route": "general",
+            "location": None,
+            "time_range": None
         }
 
     # ---------------------------------------------------------
-    # 2. LLM Query Classification
+    # 2. LLM Query Classification & Entity Extraction
     # ---------------------------------------------------------
 
     prompt = f"""
-You are a query classifier for a District Information Assistant.
+You are an intent classifier and entity extractor for an AI Assistant.
 
-Your job is to classify the user's question into exactly ONE
-of these four categories:
+Classify the user's question into exactly ONE of these categories:
 
-1. "theni"
-2. "general"
-3. "current"
-4. "arithmetic"
-5. "image"
+1. "current_news": ONLY when the user explicitly asks for general news headlines, daily news feeds, or breaking news digests for a location (e.g., "today's news", "news today in Chennai", "latest headlines", "breaking news").
+   CRITICAL: If the user asks a specific factual question about a person, politician, death, party, score, event, or incident (e.g., "which MLA died recently in TVK?", "who won the match?", "is X alive?", "what happened to Y?"), DO NOT classify as "current_news". Classify as "current" or "general".
+2. "theni": Questions specifically about static district administration, offices, schemes, tourist spots, or static government records contained in the local knowledge base.
+3. "current": Real-time web facts, current events, specific questions about people, deaths, politics, product prices, weather, sports scores.
+4. "datetime": Questions about today's date, current time, or calculating what day of the week a date falls on (e.g., "what day is 28/10/2026?").
+5. "arithmetic": Math calculations.
+6. "image": Requests to create/generate an image.
+7. "general": General knowledge or conversational questions.
 
----------------------------------------------------------
-CATEGORY 1: THENI
----------------------------------------------------------
+Also extract:
+- "location": The target location mentioned (e.g., "Theni", "Chennai", "India", "Global", or null if none).
+- "time_range": "today" (if asking for today/current date headlines), "recent" (if asking for recent/latest news), "historical" (if asking for specific past year e.g. 2019/2026 election results), or "any".
 
-Use "theni" when the question is related to:
+JSON OUTPUT FORMAT:
+{{
+  "route": "current_news",
+  "location": "Theni",
+  "time_range": "today"
+}}
 
-- Theni District
-- Theni tourist places
-- Theni geography
-- Theni waterfalls
-- Theni temples
-- Theni district offices
-- Theni government services
-- Theni government schemes
-- Theni agriculture
-- Theni infrastructure
-- Any information contained in the private Theni knowledge base
-
-Examples:
-
-"What are the tourist places in Theni?"
-→ theni
-
-"Which waterfalls are popular in the district?"
-→ theni
-
-"What government offices are available in Theni?"
-→ theni
-
-
----------------------------------------------------------
-CATEGORY 2: GENERAL
----------------------------------------------------------
-
-Use "general" for general knowledge questions that are:
-
-- Not related to Theni
-- Not time-sensitive
-- Not arithmetic
-
-Examples:
-
-"What is LangGraph?"
-→ general
-
-"What is Python?"
-→ general
-
-"Who invented the telephone?"
-→ general
-
-
----------------------------------------------------------
-CATEGORY 3: CURRENT
----------------------------------------------------------
-
-Use "current" when the question requires
-up-to-date or real-time information.
-
-Examples:
-
-"What is the current population of India?"
-→ current
-
-"What is today's weather?"
-→ current
-
-"What is the latest version of Python?"
-→ current
-
-"What are today's news headlines?"
-→ current
-
-
----------------------------------------------------------
-CATEGORY 4: ARITHMETIC
----------------------------------------------------------
-
-Use "arithmetic" when the user asks for a mathematical
-calculation.
-
-This includes:
-
-- Addition
-- Subtraction
-- Multiplication
-- Division
-- Percentage
-- Average
-- Power
-- Modulo
-- Mathematical expressions
-
-Examples:
-
-"What is 25 + 75?"
-→ arithmetic
-
-"What is 125 multiplied by 48?"
-→ arithmetic
-
-"Calculate 1000 / 25"
-→ arithmetic
-
-"What is 20% of 500?"
-→ arithmetic
-
-"What is 2 raised to the power of 10?"
-→ arithmetic
-
-"Calculate 500 minus 125"
-→ arithmetic
-
-5. "image":
-   Use this when the user explicitly asks to create,
-   generate, draw, design, visualize, or produce an image.
-
-Examples:
-"Create an image of a cat"
-"Generate a picture of a dog"
-"Draw a bird"
-"Visualize a sunset"
-
----------------------------------------------------------
-IMPORTANT RULES
----------------------------------------------------------
-
-If the question requires mathematical calculation,
-choose "arithmetic".
-
-If the question requires current information,
-choose "current".
-
-If the question is about the Theni knowledge base,
-choose "theni".
-
-Otherwise choose "general".
-
-Return ONLY valid JSON.
-
-Valid responses are:
-
-{{"route": "theni"}}
-
-{{"route": "general"}}
-
-{{"route": "current"}}
-
-{{"route": "arithmetic"}}
-
-{{"route": "image"}}
-
-
-Question:
+User Question:
 {question}
 """
 
+    route = "general"
+    location = None
+    time_range = "any"
+
     try:
+        response = llm_service.generate(prompt, temperature=0.0)
+        logger.info(f"[LangGraph] Classifier response: {response}")
 
-        response = llm_service.generate(
-            prompt,
-            temperature=0.0
-        )
-
-        logger.info(
-            f"[LangGraph] Classifier response: {response}"
-        )
-
-        # -----------------------------------------------------
-        # Extract JSON from LLM response
-        # -----------------------------------------------------
-
-        json_match = re.search(
-            r'\{.*\}',
-            response,
-            re.DOTALL
-        )
-
+        json_match = re.search(r'\{.*\}', response, re.DOTALL)
         if json_match:
-
-            data = json.loads(
-                json_match.group(0)
-            )
-
-            route = data.get(
-                "route",
-                "general"
-            )
-
-        else:
-
-            route = "general"
-
-        # -----------------------------------------------------
-        # Validate route
-        # -----------------------------------------------------
-
-        allowed_routes = [
-            "theni",
-            "general",
-            "current",
-            "arithmetic",
-            "image"
-        ]
-
-        if route not in allowed_routes:
-            logger.warning(
-                f"[LangGraph] Invalid route returned: {route}"
-            )
-
-            route = "general"
+            data = json.loads(json_match.group(0))
+            route = data.get("route", "general")
+            location = data.get("location")
+            time_range = data.get("time_range", "any")
 
     except Exception as e:
+        logger.error(f"[LangGraph] Classification failed: {str(e)}")
 
-        logger.error(
-            f"[LangGraph] Classification failed: {str(e)}"
-        )
+    # Deterministic fallback rules for News intent
+    is_news_kw = any(kw in q_lower for kw in ["news", "headline", "headlines", "breaking news"])
+    is_today_kw = any(kw in q_lower for kw in ["today", "today's", "current headlines"])
+    is_recent_kw = any(kw in q_lower for kw in ["recent", "latest"])
 
+    # Check if user asked a specific interrogative question (who, which, what, why, when, how, is, was, did, etc.)
+    is_specific_question = bool(re.search(r"^\s*(which|who|what|where|when|why|how|is|was|did|has|have|can|will|tell me about)\b", q_lower))
+    is_explicit_news_headline = any(kw in q_lower for kw in ["today's news", "news headlines", "headlines of", "breaking news", "daily news", "news today", "top headlines"])
+
+    # Exclude commercial product queries like "Toyota Rumion price" from current_news
+    is_price_product = any(kw in q_lower for kw in ["price", "on road price", "cost", "buy", "hotel booking"])
+
+    if is_news_kw and not is_price_product and (is_explicit_news_headline or not is_specific_question):
+        route = "current_news"
+
+    # If classified as current_news but it's actually a specific question, redirect to 'current' for live web search
+    if route == "current_news" and is_specific_question and not is_explicit_news_headline:
+        logger.info("[LangGraph] Redirecting specific question from 'current_news' to 'current' for live web search.")
+        route = "current"
+
+    if is_today_kw:
+        time_range = "today"
+    elif is_recent_kw and time_range != "today":
+        time_range = "recent"
+
+    # Extract location fallback if missing
+    if not location or location.lower() in ["none", "null"]:
+        if "theni" in q_lower:
+            location = "Theni"
+        elif "chennai" in q_lower:
+            location = "Chennai"
+        elif "india" in q_lower:
+            location = "India"
+        else:
+            location = "Global"
+
+    allowed_routes = ["theni", "current_news", "current", "datetime", "arithmetic", "image", "general"]
+    if route not in allowed_routes:
         route = "general"
 
     logger.info(
-        f"[LangGraph] Route selected: {route}"
+        f"[LangGraph] Route selected: {route} | Location: {location} | TimeRange: {time_range}"
     )
 
     return {
         **state,
-        "route": route
+        "route": route,
+        "location": location,
+        "time_range": time_range
     }
 
 
@@ -323,8 +183,14 @@ def route_question(state: GraphState) -> str:
     if route == "theni":
         return "theni"
 
+    elif route == "current_news":
+        return "current_news"
+
     elif route == "current":
         return "current"
+
+    elif route == "datetime":
+        return "datetime"
 
     elif route == "arithmetic":
         return "arithmetic"
